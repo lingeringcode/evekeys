@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 setup(
   name = 'evekeys',
   packages = ['evekeys'],
-  version = '0.0.1',
+  version = '0.0.2',
   description = 'A set of functions that uses sklearn to conduct a TF-IDF analysis to generate keywords from event-based / grouped textual corpus.',
   author = 'Chris A. Lindgren',
   author_email = 'chris.a.lindgren@gmail.com',
