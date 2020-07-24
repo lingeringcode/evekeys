@@ -1,4 +1,4 @@
-site_name: evekeys - Generate keywords from event-based textual corpus
+site_name: evekeys - Generate keywords from event-based / grouped textual corpus
 nav:
-    - Home: index.md
+    - Home: index.rst
 theme: readthedocs

@@ -27,6 +27,7 @@ It functions only with Python 3.x and is not backwards-compatible.
 
 * pandas
 * sklearn
+* tqdm
 
 ## Installation
 ```pip install evekeys```

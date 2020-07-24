@@ -24,7 +24,14 @@
 import pandas as pd
 import ast
 import re
+from tqdm import tqdm_notebook as tqdm
 from sklearn.feature_extraction.text import CountVectorizer
+
+def list_contains_string(lst, string):
+   for v in lst:
+      if string in v:
+         return True
+   return False
 
 def get_stop_words(stop_file_path):
     """load stop words from file"""
@@ -57,7 +64,7 @@ def period_group_writer(**kwargs):
                 #check if list is string
                 if isinstance(h, str):
                     h = ast.literal_eval(h)
-                    if len(h) > 0:
+                    if type(h) == list and len(h) > 0:
                         # Go through list of group search factors
                         for ht_check in h:
                             for ht in g[0]:
@@ -81,6 +88,61 @@ def period_group_writer(**kwargs):
             })
     return kwargs['corpus']
 
+def group_only_writer(**kwargs):
+    s = kwargs['corpus']
+    
+    #Create dict for storing grouped content
+    group_dict = {}
+    for group in kwargs['group_lists']:
+        group_dict.update({
+            group[1]:[]
+        })
+    
+    # Parse corpus and based on grouping filter, 
+    # assign to respective group in group_dict
+    for row in tqdm(s.to_dict('records')):
+        # Check content for group filter
+        h = row[kwargs['group_col']]
+        
+        # Check if list is string
+        if isinstance(h, str):
+            h = ast.literal_eval(h)
+            if type(h) == list and len(h) > 0:
+                # Go through list of group search factors
+                for group_check in h:
+                    # Parse all group lists
+                    for group in kwargs['group_lists']:
+                        # Check each filtering item in List
+                        for g in group[0]:
+                            #If match found, append content to list
+                            #with shared group name from tuple
+                            if g == group_check:
+                                group_dict[group[1]].append(row)
+        # Check if list is list
+        elif isinstance(h, list):
+            if len(h) > 0:
+                # Go through list of group search factors
+                for group_check in h:
+                    # Parse all group lists
+                    for group in kwargs['group_lists']:
+                        # Check each filtering item in List
+                        for g in group[0]:
+                            #If match found, append content to list
+                            #with shared group name from tuple
+                            if g == group_check:
+                                group_dict[group[1]].append(row)
+
+        
+    # Assign each corpus as dataframes
+    final_group_dict = {}
+    for group in group_dict:
+        g_df = pd.DataFrame(group_dict[group])
+        final_group_dict.update({
+            group: { 'corpus': g_df }
+        })
+    
+    return final_group_dict
+
 class vectorObj:
     '''an object class that stores each event's/group's documents, count vector, word count vector, and keywords'''
     def __init__(self, docs=None, cv=None, word_count_vector=None, keywords=None,):
@@ -89,27 +151,48 @@ class vectorObj:
         self.word_count_vector = word_count_vector
         self.keywords = keywords
 
-
 def word_count_vectorizer(**kwargs):
-    for p in kwargs['corpus']:
-        for group in kwargs['corpus'][p]:
-            if group == 'period_only':
-                continue
-            else:
-                vo = vectorObj()
+    # If periodicly organized
+    if kwargs['org_type'] == 'periodic':
+        for p in kwargs['corpus']:
+            for group in kwargs['corpus'][p]:
+                group_check = list_contains_string(kwargs['group_list'], group)
+                if group_check == True:
+                    vo = vectorObj()
 
-                docs = kwargs['corpus'][p][group]['corpus']['tweet'].tolist()
-                vo.docs = docs
+                    docs = kwargs['corpus'][p][group]['corpus']['tweet'].tolist()
+                    vo.docs = docs
 
-                #create a vocabulary of words, 
-                #ignore words that appear in X% of documents, 
-                #eliminate stop words
-                cv = CountVectorizer(max_df=kwargs['max_df'], stop_words=kwargs['stopwords'])
-                vo.cv = cv
+                    #create a vocabulary of words, 
+                    #ignore words that appear in X% of documents, 
+                    #eliminate stop words
+                    cv = CountVectorizer(max_df=kwargs['max_df'], stop_words=kwargs['stopwords'])
+                    vo.cv = cv
 
-                word_count_vector = cv.fit_transform(docs)
-                vo.word_count_vector = word_count_vector
+                    word_count_vector = cv.fit_transform(docs)
+                    vo.word_count_vector = word_count_vector
 
-                kwargs['corpus'][p][group].update({ 'object':vo })
-    
+                    kwargs['corpus'][p][group].update({ 'object':vo })
+
+    if kwargs['org_type'] == 'groups_only':
+        for group in kwargs['corpus']:
+                group_check = list_contains_string(kwargs['group_names'], group)
+                if group_check == True:
+                    vo = vectorObj()
+
+                    docs = kwargs['corpus'][group]['corpus']['tweet'].tolist()
+                    vo.docs = docs
+
+                    #create a vocabulary of words
+                    cv = CountVectorizer(
+                        max_df=kwargs['max_df'], #ignore words that appear in X% of documents
+                        stop_words=kwargs['stopwords'] #eliminate stop words
+                    )
+                    vo.cv = cv
+
+                    word_count_vector = cv.fit_transform(docs)
+                    vo.word_count_vector = word_count_vector
+
+                    kwargs['corpus'][group].update({ 'object':vo })
+
     return kwargs['corpus']
